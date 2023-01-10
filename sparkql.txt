@@ -1,0 +1,20 @@
+#Indian Surgeons.
+SELECT ?person  ?personLabel ?dob
+
+WHERE {
+  
+  ?person wdt:P31 wd:Q5 .#person with human value
+  
+  ?person wdt:P27 wd:Q668.#citizens of India
+  
+  ?person wdt:P106 wd:Q774306. #Indian surgeons
+  
+  ?person wdt:P569 ?dob #surgeon should have date of birth.
+          
+  FILTER(YEAR(?dob)> 1920) # only allow a surgeon born after 1920
+ 
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+          
+}
+
+ORDER BY DESC(?dob) # ordering the data by date of birth.
