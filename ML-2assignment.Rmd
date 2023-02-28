@@ -1,0 +1,427 @@
+---
+title: "ML2_assignment"
+author: "Ravikiran"
+date: "`2-28-2023"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+The dataset is related to left and right political parties in Inida, with the goal of predicting the political leaning of a given party.
+
+This is a classification problem in the filed of Natural language processing. The objective is to accurately predict whether a political party belongs to the left or the right category based on the textual data of the tweets.
+
+The class variable to be predicted is the political leaning of the party, with class values as "left" and "right". The model can be evlauated using metrics such as accuracy, precesion, recall and F1-score.
+
+'The predictive features are the party names of the rightwing and the leftwing political parties of India in the, namely BJP,CPI,CPIM,AIMIM.
+
+# First Importing the Required libraries
+
+```{r}
+library(twitteR)
+library(ROAuth)
+library(plyr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(httr)
+library(wordcloud)
+library(RCurl)
+library(syuzhet)
+library(openssl)
+library(httpuv)
+library(tm)
+```
+
+
+#Connecting to twitter and getting the tweets and saving the tweets as CSV files.
+```{r}
+#setting up OAuth (Open Authorization) authentication for the Twitter API.
+
+setup_twitter_oauth('of8Nnh1d0kv0ZLBAdYRruPg8z','BtovPLnpSKQr1QbwoPaGXZjmVshgErtPBgSnBqMMJ1lpxRatEc','1085774868-x2gHiBwae2Os83nyAwlt4cKygawoY2xXsAct8nm','NelDuAZdKfKh9LvveIB2Ll4HTPiK9XkfWrURyrRWPmJSu')
+
+#searching for tweets containing the keywords "BJP", "AIMIM", "CPI", and "CPIM".
+Bjp_tweets = searchTwitter("BJP", n=500, since = "2016-09-01",lang = "en")
+mim_tweets = searchTwitter("AIMIM", n =500, since = "2016-09-01",lang = "en")
+
+
+cpi_tweets = searchTwitter("CPI", n =500, since = "2016-09-01",lang = "en")
+cpim_tweets = searchTwitter("CPIM", n =500, since = "2016-09-01",lang = "en")
+
+
+#The length function in R is used to determine the number of elements in a vector or list
+length.Bjp_tweets <- length(Bjp_tweets)
+length.mim_tweets <- length(mim_tweets)
+length.cpi_tweets <- length(cpi_tweets)
+length.cpim_tweets <- length(cpim_tweets)
+
+length.Bjp_tweets
+length.mim_tweets
+length.cpi_tweets
+length.cpim_tweets
+
+#each of these data frames is written to a separate CSV file using the write.csv function.
+Bjp_tweets.df <- ldply(Bjp_tweets, function(t) t$toDataFrame())
+write.csv(Bjp_tweets.df,"Bjp_tweets.csv")
+
+mim_tweets.df <- ldply(mim_tweets, function(t) t$toDataFrame())
+write.csv(mim_tweets.df,"mim_tweets.csv")
+
+cpi_tweets.df <- ldply(cpi_tweets, function(t) t$toDataFrame())
+write.csv(cpi_tweets.df,"cpi_tweets.csv")
+
+cpim_tweets.df <- ldply(cpim_tweets, function(t) t$toDataFrame())
+write.csv(cpim_tweets.df,"cpim_tweets.csv")
+```
+
+#Cleaning the tweets using gsub
+```{r}
+bjp_txt = sapply(Bjp_tweets,function(x) x$getText())
+mim_txt = sapply(mim_tweets,function(x) x$getText())
+cpi_txt = sapply(cpi_tweets,function(x) x$getText())
+cpim_txt = sapply(cpim_tweets,function(x) x$getText())
+
+#using the gsub function in R to remove the retweets
+bjp_txt1 = gsub("(RT|via)((?:\\b\\W*@\\w+)+)","",bjp_txt)
+mim_txt1 = gsub("(RT|via)((?:\\b\\W*@\\w+)+)","",mim_txt)
+cpi_txt1 = gsub("(RT|via)((?:\\b\\W*@\\w+)+)","",cpi_txt)
+cpim_txt1 = gsub("(RT|via)((?:\\b\\W*@\\w+)+)","",cpim_txt)
+
+#using the gsub function in R to remove URL links from the text of the tweets
+bjp_txt2 = gsub("http[^[:blank:]]+","",bjp_txt1)
+mim_txt2 = gsub("http[^[:blank:]]+","",mim_txt1)
+cpi_txt2 = gsub("http[^[:blank:]]+","",cpi_txt1)
+cpim_txt2 = gsub("http[^[:blank:]]+","",cpim_txt1)
+
+#using the gsub function in R to remove Twitter handles from the text of the tweets
+bjp_txt3 = gsub("@\\w+","",bjp_txt2)
+mim_txt3 = gsub("@\\w+","",mim_txt2)
+cpi_txt3 = gsub("@\\w+","",cpi_txt2)
+cpim_txt3 = gsub("@\\w+","",cpim_txt2)
+
+
+#using the gsub function in R to remove punctuation from the text of the tweets
+bjp_txt4 =  gsub("[[:punct:]]"," ",bjp_txt3)
+mim_txt4 =  gsub("[[:punct:]]"," ",mim_txt3)
+cpi_txt4 =  gsub("[[:punct:]]"," ",cpi_txt3)
+cpim_txt4 = gsub("[[:punct:]]"," ",cpim_txt3)
+
+# using the gsub function in R to further clean the alppha numeric from text of the tweets.
+bjp_txt5 = gsub("[^[:alnum:]]"," ", bjp_txt4)
+mim_txt5 = gsub("[^[:alnum:]]"," ", mim_txt4)
+cpi_txt5 = gsub("[^[:alnum:]]"," ", cpi_txt4)
+cpim_txt5 = gsub("[^[:alnum:]]"," ", cpim_txt4)
+
+
+# using the write.csv function in R to write the character vectors stored in "bjp_txt5", "mim_txt5", "cpi_txt5", and "cpim_txt5" to separate CSV files.
+write.csv(bjp_txt5,"bjp1.csv")
+write.csv(mim_txt5,"mim1.csv")
+write.csv(cpi_txt5,"cpi1.csv")
+write.csv(cpim_txt5,"cpim1.csv")
+```
+
+
+```{r}
+#Combining the right and left csv files into seperate csv files by changing directories.
+#files <- list.files(pattern="*.csv")
+#list_of_dfs <- lapply(files, read.csv)
+#final_df <- do.call(rbind, list_of_dfs)
+#write.csv(final_df, "combined_csv.csv")
+```
+
+
+#reading the right and left tweets.
+```{r}
+getwd()
+df_left <- read.csv('combined_left_csv.csv', stringsAsFactors = FALSE, header = TRUE)
+df_right  <- read.csv('combined_right_csv.csv', stringsAsFactors = FALSE, header = TRUE)
+```
+
+#getting the text of the tweets
+```{r}
+text_right <- df_right$Text
+text_left <- df_left$Text
+
+length(text_right)
+length(text_left)
+```
+
+#number of right and left tweets and converting the tweets to corpus
+```{r}
+instance_right = 984
+instance_left = 988
+
+str(text_right)
+str(text_left)
+
+library(tidytext)
+library(tm)             
+
+left_corpus <- Corpus(VectorSource(text_left))
+right_corpus <- Corpus(VectorSource(text_right))
+
+left <- as.list(left_corpus)
+right <- as.list(right_corpus)
+```
+
+#further cleaning of the tweets using  snowball stemmer or  preprocesses the text data.
+
+```{r}
+library(tm)
+library(SnowballC)
+pol_text.corpus=c(right,left)
+my_corpus <- VCorpus(VectorSource(pol_text.corpus))
+clean_corpus.corpus.trans = tm_map(my_corpus,removeNumbers)
+clean_corpus.corpus.trans=tm_map(clean_corpus.corpus.trans,removePunctuation)
+clean_corpus.corpus.trans=tm_map(clean_corpus.corpus.trans, content_transformer(tolower)) 
+clean_corpus.corpus.trans=tm_map(clean_corpus.corpus.trans,removeWords,stopwords("english"))
+clean_corpus.corpus.trans=tm_map(clean_corpus.corpus.trans,stripWhitespace)
+clean_corpus.corpus.trans=tm_map(clean_corpus.corpus.trans,stemDocument)
+clean_corpus.corpus.trans
+```
+
+#converting the corpus to document term  matrix.
+```{r}
+# document term matrix.
+clean_corpus.corpus.trans.dtm=DocumentTermMatrix(clean_corpus.corpus.trans)
+
+#remove sparseness
+clean_corpus.corpus.trans.dtm.99=removeSparseTerms(clean_corpus.corpus.trans.dtm,sparse=0.99)
+#dimensions
+dim(clean_corpus.corpus.trans.dtm.99)
+
+type = c(rep("right",instance_right),rep("left",instance_left))
+tweet_data = data.frame(as.matrix(clean_corpus.corpus.trans.dtm.99))
+tweet_data$type = type
+
+dim(tweet_data)
+dim(tweet_data[tweet_data$type=="right",])
+dim(tweet_data[tweet_data$type=="left",])
+
+```
+
+
+#Finding the outliers for the right views
+```{r}
+#we select only the right views.
+#we select only the right views.
+data_right = tweet_data[tweet_data$type=="right",]
+data_right = subset(data_right,data_right=-c(type))
+dim(data_right)
+class(data_right)
+```
+
+
+#using isolation forest for the outlier detection of right data or tweets.
+```{r}
+
+library(solitude)
+iso <- isolationForest$new()
+iso$fit(data_right)
+p <- iso$predict(data_right)
+print(p)
+sort(p$anomaly_score)
+plot(density(p$anomaly_score))
+which(p$anomaly_score > 0.63)
+#removing outliers.
+outliers <- which(p$anomaly_score > 0.63)
+m <- data_right[-outliers, ]
+```
+
+#word cloud creation on the corpus
+```{r}
+#word cloud
+library(wordcloud)
+pal <- brewer.pal(8,"Dark2")
+wordcloud(clean_corpus.corpus.trans, min.freq = 5, max.words = Inf, width=1000, height
+          =1000, random.order = FALSE,color=pal)
+```
+
+#created term document matrix to know the frequency of words and cluster dendogram
+```{r}
+#Create term document matrix.
+tdm = TermDocumentMatrix(clean_corpus.corpus.trans,
+                         control = list(minWordLength=c(1,Inf)))
+
+tdm
+#Removing sparse terms
+t <- removeSparseTerms(tdm,sparse = 0.98)
+n <- as.matrix(tdm)
+
+#plot frequent terms
+freq <- rowSums(n)
+freq <- subset(freq, freq>50)
+barplot(freq, las=2, col = rainbow(25))
+
+#Dendogram.
+distance <- dist(scale(n))
+print(distance,digits=2)
+hc <- hclust(distance,method = "ward.D")
+plot(hc,hang=-1)
+```
+
+
+#Dividing  the data to train and test.
+```{r}
+library(caret)
+set.seed(107) #splitting  of data to train and test
+inTrain <- createDataPartition(y=tweet_data$type,p=.80,list=FALSE)
+training <- tweet_data[inTrain,]
+testing <- tweet_data[-inTrain,]
+nrow(training)
+nrow(testing)
+```
+
+# a Bayesian generalized linear regression model (bayesglm) using the training dataset named "training" to predict the values of the "type" variable, which is "right" or "left" which is a binary outcome.The trainControl() function is used to specify the details of the cross-validation procedure, including the method of cross-validation,
+
+```{r}
+library(arm)
+
+tweet_model <- trainControl(method = "repeatedcv",repeats=3,sampling="up")
+
+Bayes_Model <- train (type ~ ., data=training,method="bayesglm",trControl=tweet_model,metric="Accuracy")
+Bayes_Model
+```
+#With Bayes accuracy is around 0.938.
+
+
+#the caret package to train an knn model using the training dataset named "training" to predict the values of the "type" variable. The code specifies a tuning grid using the expand.grid() function, and the resulting trained model object (knn_Model) is evaluated using the "Accuracy" metric. The trace argument is set to FALSE to suppress diagnostic output.
+```{R}
+library(caret)
+
+tuneGrid <- expand.grid(
+  size = seq(from = 1, to = 3, by = 1),
+  decay = seq(from = 0.1, to = 0.2, by = 0.1),
+  bag=FALSE
+)
+tuneGrid <- expand.grid(
+  size = 2,
+  decay = 0.3,
+  bag=FALSE
+)
+
+knn_Model <- train(type ~ ., data = training, method = "knn", trControl = tweet_model, metric = "Accuracy", tuneGrid = data.frame(k = 1:10))
+knn_Model
+
+```
+#With knn accuracy is around 0.9262
+
+
+#Predicting with the test set.
+```{r}
+library(caret)
+B_class <- predict(Bayes_Model, newdata = testing, type = "raw")
+R_class <- predict(knn_Model, newdata = testing, type = "raw")
+
+testing$type=as.factor(testing$type)
+confusionMatrix(data= B_class,testing$type)
+confusionMatrix(data= R_class,testing$type)
+```
+#With knn accuracy is around 0.9262
+#With Bayes accuracy is around 0.938
+
+#Feature extraction.
+```{r}
+library(caret)
+library(mlbench)
+library(Hmisc)
+library(randomForest)
+
+set.seed(10)
+
+cont <- rfeControl(functions = rfFuncs,
+                   method = "repeatedcv",
+                   repeats = 4,
+                   verbose = FALSE)
+
+training$type=as.factor(training$type)
+training_n_type=subset(training,select=-c(type))
+rf_file <- rfe(training_n_type, training$type,
+                 rfeControl = cont)
+
+rf_file
+```
+# With 4 variables the accuracy is 0.78.
+# with 8 variables the accuracy is 0.83.
+# with 16 variables the accuracy is 0.89.
+# With 193 variables the accuracy is 0.94.
+
+#next we will extract the features and retrain and calculate the new accuracy.
+
+```{r}
+training_e_features=subset(training,select=c(cpi,cpim,bjp,aimim,type))
+testing_e_features=subset(testing,select=c(cpi,cpim,bjp,aimim,type))
+
+bayes_four_features <- train (type ~ ., data=training_e_features,method="bayesglm",trControl=tweet_model,metric="Accuracy")
+
+bayes_class_four_features <- predict(bayes_four_features, newdata = testing_e_features, type = "raw")
+confusionMatrix(data=bayes_class_four_features,testing$type)
+```
+# With the four features the accuracy is 0.78
+
+
+#Feature selection, using prcomp function for principal components
+```{r}
+#Feature selection
+library(ggfortify)
+
+training_n_ype=subset(training,select=-c(type))
+
+p=prcomp(training_n_type, scale = TRUE)
+autoplot(p,training,colour="type")
+
+```
+#It looks there is some level of overlap and some level of difference between the leftist and the rightist tweets.
+
+
+#Feature extracted training.
+```{r}
+library(ggfortify)
+
+training_n_type_extract =subset(training_e_features,select=-c(type))
+
+P_extract = prcomp(training_n_type_extract, scale = TRUE)
+autoplot(P_extract,training_e_features,colour="type")
+```
+# I see few points this might be because, the autoplot function is only plotting a subset of the points from the training_extracted dataset
+
+#Prediction of class labels.
+```{r}
+library(caret)
+knn_class2 <- predict(knn_Model, newdata = testing, type = "prob")
+knn_class2
+```
+
+
+#. Predict the class-label of the samples with unannotated data.:
+```{r}
+test_without_class=subset(testing,select=-c(type))
+knn_class2_una <- predict(knn_Model, newdata = test_without_class, type = "prob")
+
+knn_class2_una
+```
+#I see that "type = prob" doesnot take class into account.
+
+#Comparision between knn and bayes.
+#Inorder to compare between Bayes classifier and knn classifier, we use the functions resamples, summary and diff.
+
+#The resamples function provides a comparison between the accuracy of the Bayes classifier and the knn. The output includes several summary statistics, such as the maximum and minimum accuracy values, as well as the quantiles, mean, and median of the accuracy measurements. This allows to get an understanding and performance of bayes and knn.
+
+```{r}
+samps=resamples(list(Bayes=Bayes_Model,kNN = knn_Model))
+summary(samps)
+```
+# I see that Bayes has more accuracy than knn, in only 3 cases they appear to be similar however, mostly it is Bayes that is accurate.
+```{r}
+xyplot(samps,what="BlandAltman")
+```
+# we have to check the p value.
+```{r}
+differences <- diff(samps)
+summary(differences)
+```
+#The output suggests that there is a statistically significant difference in performance between the two models for both accuracy and kappa,Specifically, the difference in accuracy between the Bayes and kNN models is estimated to be 0.01034, with a p-value of less than 0.05. The difference in kappa is estimated to be 0.02831, also with a p-value of less than 0.05..I see that the kNN model has a slightly better performance than the Bayes model in terms of both accuracy and kappa statistics
+
+
+
